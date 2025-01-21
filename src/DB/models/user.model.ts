@@ -1,10 +1,18 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+enum Roles {
+  User = "user",
+  Admin = "admin",
+  Guest = "guest",
+}
+
 interface Iuser extends Document {
   name: string;
   email: string;
   password: string;
   age?: number;
+  phone?: string;
+  role: Roles;
 }
 
 const userSchema = new Schema<Iuser>(
@@ -37,9 +45,19 @@ const userSchema = new Schema<Iuser>(
       min: [5, "Age must be at least 5 years old"],
       max: [100, "Age must be at most 100 years old"],
     },
+    role: {
+      type: String,
+      enum: Object.values(Roles),
+      required: true,
+      default: Roles.User,
+    },
+    phone: {
+      type: String,
+      required: false,
+      message: "phone must be 11 number and start with 01",
+    },
   },
   { timestamps: true }
 );
-userSchema.index({ email: 1 });
 const userModel = mongoose.model<Iuser>("user", userSchema);
 export default userModel;
