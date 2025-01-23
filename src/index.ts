@@ -3,19 +3,22 @@ import routes from "./app.controller";
 import { database } from "./DB/connect";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import { errorHandler } from "./utils/errorHandling";
+import { errorHandler, multerErrorHandler } from "./utils/errorHandling";
 import redis from "./utils/redis";
 import { isAuth, Roles } from "./middleware/auth";
+import path from "path";
 
 const app: Application = express();
 const port = 5000;
 dotenv.config();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 redis;
 //all routes
 app.use("/api/v1", routes);
-// app.use("/api", isAuth(Roles.User));
 
 app.get("/", (req: Request, res: Response): void => {
   res.send("Hello World!");
@@ -25,7 +28,6 @@ app.get("/", (req: Request, res: Response): void => {
 app.all("*", (req: Request, res: Response): void => {
   res.json({ message: "Invaild URL or Method" });
 });
-
 app.use(errorHandler);
 
 // after DB connection run ur server

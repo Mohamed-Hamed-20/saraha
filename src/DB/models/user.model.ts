@@ -13,7 +13,8 @@ interface Iuser extends Document {
   age?: number;
   phone?: string;
   role: Roles;
-  isConfirmed:boolean;
+  isConfirmed: boolean;
+  avatar: string;
 }
 
 const userSchema = new Schema<Iuser>(
@@ -61,6 +62,12 @@ const userSchema = new Schema<Iuser>(
       type: Boolean,
       required: false,
       default: false,
+    },
+    avatar: {
+      type: String,
+      required: false,
+      default:
+        "https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg",
     },
   },
   { timestamps: true }

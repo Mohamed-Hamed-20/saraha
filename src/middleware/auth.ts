@@ -33,12 +33,8 @@ export const isAuth = (roles: Array<Roles>) => {
     async (req: Request, res: Response, next: NextFunction) => {
       const { accessToken: accessTokenPrefix } = req.cookies;
 
-      if (!accessTokenPrefix.startsWith(process.env.ACCESS_TOKEN_START_WITH)) {
-        return next(new CustomError("Invalid token prefix", 400));
-      }
-
       const accessToken = accessTokenPrefix.split(
-        process.env.ACCESS_TOKEN_START_WITH
+        process.env.ACCESS_TOKEN_START_WITH || "Bearer "
       )[1];
 
       let decodedToken;

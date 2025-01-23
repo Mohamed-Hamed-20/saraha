@@ -2,8 +2,6 @@ import jwt, {
   JsonWebTokenError,
   JwtPayload,
   Secret,
-  NotBeforeError,
-  TokenExpiredError,
 } from "jsonwebtoken";
 import { CustomError } from "./errorHandling";
 import mongoose from "mongoose";
@@ -47,27 +45,8 @@ export const verifyToken = (token: string, secretKey: Secret) => {
 
     return payload;
   } catch (error: unknown) {
-    if (error instanceof TokenExpiredError) {
-      throw new CustomError(
-        "Token verification failed: Token has expired",
-        401
-      );
-    } else if (error instanceof NotBeforeError) {
-      throw new CustomError(
-        "Token verification failed: Token not active yet",
-        401
-      );
-    } else if (error instanceof JsonWebTokenError) {
-      throw new CustomError(`Token verification failed: ${error.message}`, 400);
-    } else if (error instanceof CustomError) {
-      throw error;
-    } else if (error instanceof Error) {
-      throw new CustomError(`Unexpected error: ${error.message}`, 500);
-    } else {
-      throw new CustomError(
-        "Unknown error occurred during token verification",
-        500
-      );
-    }
+    throw process.env.NODE_ENV == "development"
+      ? error
+      : "Unknown error occurred during token verification";
   }
 };
