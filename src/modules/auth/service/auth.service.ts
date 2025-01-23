@@ -8,6 +8,7 @@ import { encrypt } from "../../../utils/crpto";
 import { sanatizeUser } from "../../../utils/sanatize.data";
 import { generateToken, verifyToken } from "../../../utils/tokens";
 import { Secret, TokenExpiredError } from "jsonwebtoken";
+import { cokkiesOptions } from "../../../utils/cookies";
 
 export const register = async (
   req: Request,
@@ -41,7 +42,7 @@ export const register = async (
   });
   const token = generateToken(
     { userId: response._id },
-    String(process.env.SECRET_KEY),
+    String(process.env.ACCESS_TOKEN_SECRET),
     "20m"
   );
   await emailQueue.add(
@@ -62,55 +63,43 @@ export const login = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+) => {
   const { email, password } = req.body;
 
   const findUser = await userModel
     .findOne({ email })
-    .select("name email password age");
+    .select("name email password age")
+    .lean();
 
-  if (!findUser) return next(new CustomError("Email doesn't exist", 404));
+  if (!findUser) return next(new CustomError("Invalid Email or Password", 404));
 
   const chkPassword: boolean = compareSync(password, String(findUser.password));
 
-  if (!chkPassword) return next(new CustomError("Invalid Password", 400));
+  if (!chkPassword)
+    return next(new CustomError("Invalid Email or Password", 404));
 
   // access Token
   const accessToken = generateToken(
     { userId: findUser._id, role: findUser.role, IpAddress: req.ip },
-    String(process.env.SECRET_KEY),
-    "1s"
+    String(process.env.ACCESS_TOKEN_SECRET),
+    "2h"
   );
 
   // Refresh Token
   const refreshToken = generateToken(
     { userId: findUser._id, role: findUser.role, IpAddress: req.ip },
-    String(process.env.SECRET_KEY),
+    String(process.env.REFRESH_TOKEN_SECRET),
     "7d"
   );
 
   res.cookie(
     "accessToken",
     `${process.env.ACCESS_TOKEN_START_WITH}${accessToken}`,
-    {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production" ? true : false,
-      sameSite: "strict",
-      maxAge: 3600000,
-      priority: "high",
-      path: "/",
-    }
+    cokkiesOptions(3600000)
   );
 
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production" ? true : false,
-    sameSite: "strict",
-    maxAge: 5 * 24 * 3600000,
-    priority: "high",
-    path: "/",
-  });
-  res
+  res.cookie("refreshToken", refreshToken, cokkiesOptions(7 * 24 * 3600000));
+  return res
     .status(200)
     .json({ message: "Login successful", user: sanatizeUser(findUser) });
 };
@@ -121,7 +110,10 @@ export const confirmEmail = async (
   next: NextFunction
 ): Promise<void> => {
   const token = req.params.token;
-  const payload = verifyToken(token.toString(), String(process.env.SECRET_KEY));
+  const payload = verifyToken(
+    token.toString(),
+    String(process.env.ACCESS_TOKEN_SECRET)
+  );
   const userupdate = await userModel
     .updateOne({ _id: payload?.userId }, { $set: { isConfirmed: true } })
     .lean();
@@ -194,14 +186,6 @@ export const updatedToken = async (
 ) => {
   const { accessToken: accessTokenPrefix, refreshToken } = req.cookies;
 
-  if (!accessTokenPrefix || !refreshToken) {
-    return next(new CustomError("Please provide both tokens", 400));
-  }
-
-  if (!accessTokenPrefix.startsWith(process.env.ACCESS_TOKEN_START_WITH)) {
-    return next(new CustomError("Invalid token prefix", 400));
-  }
-
   const accessToken = accessTokenPrefix.split(
     process.env.ACCESS_TOKEN_START_WITH
   )[1];
@@ -210,7 +194,7 @@ export const updatedToken = async (
     // Verify the access token
     const decodedToken = verifyToken(
       accessToken,
-      String(process.env.SECRET_KEY)
+      String(process.env.ACCESS_TOKEN_SECRET)
     );
 
     if (decodedToken && decodedToken.userId) {
@@ -224,13 +208,13 @@ export const updatedToken = async (
         // Verify refresh token if access token expired
         const { userId, role } = verifyToken(
           refreshToken,
-          String(process.env.SECRET_KEY)
+          String(process.env.REFRESH_TOKEN_SECRET)
         );
 
         // Generate a new access token
         const newAccessToken = generateToken(
           { userId, role, IpAddress: req.ip },
-          String(process.env.SECRET_KEY),
+          String(process.env.ACCESS_TOKEN_SECRET),
           "1h"
         );
 

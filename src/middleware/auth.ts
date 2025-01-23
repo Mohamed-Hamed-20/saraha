@@ -28,7 +28,7 @@ declare global {
   }
 }
 
-export const isAuth = (roles: Roles) => {
+export const isAuth = (roles: Array<Roles>) => {
   return asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { accessToken: accessTokenPrefix } = req.cookies;
@@ -43,10 +43,16 @@ export const isAuth = (roles: Roles) => {
 
       let decodedToken;
 
-      decodedToken = verifyToken(accessToken, String(process.env.SECRET_KEY));
+      decodedToken = verifyToken(
+        accessToken,
+        String(process.env.ACCESS_TOKEN_SECRET)
+      );
       const { userId } = decodedToken;
 
-      const finduser = await userModel.findById(new Types.ObjectId(userId));
+      const finduser = await userModel.findById(new Types.ObjectId(userId), {
+        password: 0,
+        __v: 0,
+      });
       if (!finduser) {
         return next(new CustomError("User not found", 404));
       }

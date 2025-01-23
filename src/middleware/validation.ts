@@ -2,8 +2,8 @@ import joi, { Schema } from "joi";
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { Types, isValidObjectId } from "mongoose";
 
-type ReqKey = "body" | "params" | "query" | "headers";
-const req_FE: Array<ReqKey> = ["body", "params", "query", "headers"];
+type ReqKey = "body" | "params" | "query" | "headers" | "cookies";
+const req_FE: Array<ReqKey> = ["body", "params", "query", "headers", "cookies"];
 
 export const valid = (schema: Record<ReqKey, Schema> | any) => {
   return (req: Request, res: Response, next: NextFunction) => {

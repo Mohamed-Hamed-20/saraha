@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 interface Imessage extends Document {
   message: string;
   senderId?: Types.ObjectId;
-  receivedId: Types.ObjectId;
+  receiverId: Types.ObjectId;
 }
 
 const messageSchema = new Schema<Imessage>(
@@ -19,7 +19,7 @@ const messageSchema = new Schema<Imessage>(
       required: false,
       ref: "user",
     },
-    receivedId: {
+    receiverId: {
       type: Schema.Types.ObjectId,
       required: true,
       ref: "user",

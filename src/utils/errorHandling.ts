@@ -24,6 +24,7 @@ export const errorHandler: ErrorRequestHandler = (
   });
 };
 
+
 type ControllerFunction = (
   req: Request,
   res: Response,
@@ -34,9 +35,7 @@ type ControllerFunction = (
 export const asyncHandler = (controller: ControllerFunction) => {
   return (req: Request, res: Response, next: NextFunction) => {
     controller(req, res, next).catch((error: Error | CustomError) => {
-      return error instanceof CustomError
-        ? next(error)
-        : next(new CustomError(error.message, 500));
+      return next(error);
     });
   };
 };

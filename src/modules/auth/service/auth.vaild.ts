@@ -31,3 +31,18 @@ export const confirmEmailSchema = {
     })
     .required(),
 };
+
+export const cokkiesSchema = {
+  cookies: joi
+    .object({
+      accessToken: joi
+        .string()
+        .pattern(/^(Bearer )[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/)
+        .required(),
+      refreshToken: joi
+        .string()
+        .pattern(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/)
+        .required(),
+    })
+    .required(),
+};

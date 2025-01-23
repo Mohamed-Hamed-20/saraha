@@ -9,3 +9,19 @@ export const sendMsgSchema = {
     })
     .required(),
 };
+
+export const deleteMsgSchema = {
+  params: joi
+    .object({
+      msgId: generalFields._id.required(),
+    })
+    .required(),
+};
+
+export const searchMsg = {
+  query: joi
+    .object({
+      searchText: joi.string().min(1).max(100).required(),
+    })
+    .required(),
+};

@@ -12,15 +12,15 @@ export const sendMessage = async (
 ) => {
   const { receiverId, message } = req.body;
 
-  const { _id: senderId = undefined } = req.user as any;
+  const userData = req.user;
 
   const user = await userModel.findById(new Types.ObjectId(receiverId));
   if (!user) return next(new CustomError("User Not found", 404));
 
   const createMsg = await messageModel.create({
-    receivedId: user?._id,
+    receiverId: receiverId,
     message: message,
-    senderId: senderId ? senderId : undefined,
+    senderId: userData?._id ? userData._id : undefined,
   });
 
   res.status(201).json({
@@ -35,24 +35,23 @@ export const deleteMsg = async (
   res: Response,
   next: NextFunction
 ) => {
-  const { _id: receiverId } = req.user as any;
-  const msgId = String(req.query.msgId);
+  const user = req.user;
+  const msgId = new Types.ObjectId(String(req.params.msgId));
 
-  const findMsg = await messageModel.findByIdAndDelete(
-    {
-      $and: [
-        { _id: new Types.ObjectId(msgId) },
-        { receiverId: new Types.ObjectId(receiverId) },
-      ],
-    },
+  const findMsg = await messageModel.findOneAndDelete(
+    { _id: msgId },
     { new: true }
   );
 
   if (!findMsg) return next(new CustomError("message not found", 404));
+  if (!findMsg.receiverId.equals(user?._id))
+    return next(new CustomError("Unauthorized to see this Message", 401));
 
-  return res
-    .status(200)
-    .json({ success: true, message: "message deleted successfully" });
+  return res.status(200).json({
+    success: true,
+    message: "message deleted successfully",
+    Msg: findMsg,
+  });
 };
 
 export const getMessages = async (
@@ -60,11 +59,19 @@ export const getMessages = async (
   res: Response,
   next: NextFunction
 ) => {
-  const { _id: userId } = req.user as any;
+  const user = req.user;
 
-  const messages = await messageModel.find({
-    receivedId: new Types.ObjectId(userId),
-  });
+  const messages = await messageModel
+    .find(
+      {
+        receiverId: new Types.ObjectId(user?._id),
+      },
+      {
+        message: 1,
+        senderId: 1,
+      }
+    )
+    .sort({ updatedAt: -1 });
 
   return res.status(200).json({
     success: true,
@@ -78,11 +85,13 @@ export const searchForMessage = async (
   res: Response,
   next: NextFunction
 ) => {
-  const { search } = req.query;
-  const { _id: userId } = req.user as any;
-
+  const { searchText } = req.query;
+  const user = req.user;
   const messages = await messageModel.find({
-    $and: [{ receivedId: userId }, { $text: { $search: String(search) } }],
+    $and: [
+      { receiverId: user?._id },
+      { $text: { $search: String(searchText) } },
+    ],
   });
 
   return res
@@ -95,11 +104,19 @@ export const getMsgById = async (
   res: Response,
   next: NextFunction
 ) => {
-  const { _id: userId } = req.user as any;
+  const user = req.user;
+  const msgId = new Types.ObjectId(req.params.msgId);
+  const message = await messageModel.findById(msgId);
+  if (!message)
+    return next(new CustomError("Invaild MessageId , not found", 404));
 
-  const messages = await messageModel.find({ receivedId: userId });
+  if (!message.receiverId.equals(user?._id)) {
+    return next(new CustomError("Unauthorized to see this Message", 401));
+  }
 
-  return res
-    .status(200)
-    .json({ success: true, message: "data returned successful", messages });
+  return res.status(200).json({
+    success: true,
+    message: "message finded successful",
+    messageInfo: message,
+  });
 };

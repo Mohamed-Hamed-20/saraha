@@ -3,6 +3,7 @@ import * as authServies from "./service/auth.service";
 import { asyncHandler } from "../../utils/errorHandling";
 import { valid } from "../../middleware/validation";
 import {
+  cokkiesSchema,
   confirmEmailSchema,
   loginSchema,
   registerSchema,
@@ -26,5 +27,9 @@ router.get(
   valid(confirmEmailSchema) as RequestHandler,
   asyncHandler(authServies.confirmEmail)
 );
-router.post("/updated/tokens", asyncHandler(authServies.updatedToken));
+router.post(
+  "/updated/tokens",
+  valid(cokkiesSchema) as RequestHandler,
+  asyncHandler(authServies.updatedToken)
+);
 export default router;
