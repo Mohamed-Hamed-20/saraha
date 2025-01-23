@@ -5,15 +5,17 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { errorHandler } from "./utils/errorHandling";
 import redis from "./utils/redis";
+import { isAuth, Roles } from "./middleware/auth";
 
 const app: Application = express();
 const port = 5000;
 dotenv.config();
 app.use(express.json());
 app.use(cookieParser());
-redis
+redis;
 //all routes
 app.use("/api/v1", routes);
+// app.use("/api", isAuth(Roles.User));
 
 app.get("/", (req: Request, res: Response): void => {
   res.send("Hello World!");

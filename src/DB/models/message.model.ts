@@ -2,7 +2,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 
 interface Imessage extends Document {
   message: string;
-  senderId: Types.ObjectId;
+  senderId?: Types.ObjectId;
   receivedId: Types.ObjectId;
 }
 
@@ -16,7 +16,7 @@ const messageSchema = new Schema<Imessage>(
     },
     senderId: {
       type: Schema.Types.ObjectId,
-      required: true,
+      required: false,
       ref: "user",
     },
     receivedId: {
@@ -27,6 +27,7 @@ const messageSchema = new Schema<Imessage>(
   },
   { timestamps: true }
 );
+messageSchema.index({ message: "text" });
 
 const messageModel = mongoose.model("message", messageSchema);
 

@@ -13,6 +13,7 @@ interface Iuser extends Document {
   age?: number;
   phone?: string;
   role: Roles;
+  isConfirmed:boolean;
 }
 
 const userSchema = new Schema<Iuser>(
@@ -55,6 +56,11 @@ const userSchema = new Schema<Iuser>(
       type: String,
       required: false,
       message: "phone must be 11 number and start with 01",
+    },
+    isConfirmed: {
+      type: Boolean,
+      required: false,
+      default: false,
     },
   },
   { timestamps: true }

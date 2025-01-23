@@ -6,6 +6,8 @@ import emailQueue from "../../../utils/email.Queue";
 import { SignUpTemplet } from "../../../utils/htmlTemplet";
 import { encrypt } from "../../../utils/crpto";
 import { sanatizeUser } from "../../../utils/sanatize.data";
+import { generateToken, verifyToken } from "../../../utils/tokens";
+import { Secret, TokenExpiredError } from "jsonwebtoken";
 
 export const register = async (
   req: Request,
@@ -37,13 +39,20 @@ export const register = async (
     message: "user Data Added successfully",
     user: sanatizeUser(response),
   });
-
+  const token = generateToken(
+    { userId: response._id },
+    String(process.env.SECRET_KEY),
+    "20m"
+  );
   await emailQueue.add(
     {
       to: response.email,
       subject: "Sara7a Team",
       text: "Welcome to My Sara7a App! 🎉",
-      html: SignUpTemplet("http://localhost:5000/"),
+      html: SignUpTemplet(
+        `${req.protocol}://${req.headers.host}/api/v1/auth/confirm/${token}/email`
+      ),
+      message: "Please confirm ur email",
     },
     { attempts: 3, backoff: 5000, removeOnComplete: true, removeOnFail: true }
   );
@@ -54,26 +63,206 @@ export const login = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const { email, password } = req.body;
+
+  const findUser = await userModel
+    .findOne({ email })
+    .select("name email password age");
+
+  if (!findUser) return next(new CustomError("Email doesn't exist", 404));
+
+  const chkPassword: boolean = compareSync(password, String(findUser.password));
+
+  if (!chkPassword) return next(new CustomError("Invalid Password", 400));
+
+  // access Token
+  const accessToken = generateToken(
+    { userId: findUser._id, role: findUser.role, IpAddress: req.ip },
+    String(process.env.SECRET_KEY),
+    "1s"
+  );
+
+  // Refresh Token
+  const refreshToken = generateToken(
+    { userId: findUser._id, role: findUser.role, IpAddress: req.ip },
+    String(process.env.SECRET_KEY),
+    "7d"
+  );
+
+  res.cookie(
+    "accessToken",
+    `${process.env.ACCESS_TOKEN_START_WITH}${accessToken}`,
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "strict",
+      maxAge: 3600000,
+      priority: "high",
+      path: "/",
+    }
+  );
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" ? true : false,
+    sameSite: "strict",
+    maxAge: 5 * 24 * 3600000,
+    priority: "high",
+    path: "/",
+  });
+  res
+    .status(200)
+    .json({ message: "Login successful", user: sanatizeUser(findUser) });
+};
+
+export const confirmEmail = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const token = req.params.token;
+  const payload = verifyToken(token.toString(), String(process.env.SECRET_KEY));
+  const userupdate = await userModel
+    .updateOne({ _id: payload?.userId }, { $set: { isConfirmed: true } })
+    .lean();
+
+  if (userupdate.matchedCount === 0)
+    return next(new CustomError("Error Please Try again later", 400));
+  res
+    .status(200)
+    .json({ message: "confirmed", success: true, user: userupdate });
+};
+
+// export const updatedToken = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   const { refreshToken } = req.cookies;
+//   console.log({ refreshToken });
+
+//   if (!refreshToken) {
+//     return next(new CustomError("Please provide both tokens", 400));
+//   }
+
+//   try {
+//     // Verify refresh token if access token expired
+//     const { userId, role } = verifyToken(
+//       refreshToken,
+//       String(process.env.SECRET_KEY)
+//     );
+
+//     // Generate a new access token
+//     const newAccessToken = generateToken(
+//       { userId, role, IpAddress: req.ip },
+//       String(process.env.SECRET_KEY),
+//       "1h"
+//     );
+
+//     res.cookie(
+//       "accessToken",
+//       `${process.env.ACCESS_TOKEN_START_WITH}${newAccessToken}`,
+//       {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === "production",
+//         sameSite: "strict",
+//         maxAge: 3600000, // 1 hour
+//         priority: "high",
+//         path: "/",
+//       }
+//     );
+
+//     // response
+//     return res.status(200).json({
+//       success: true,
+//       message: "Token refreshed",
+//       accessToken: newAccessToken,
+//     });
+//   } catch (error) {
+//     if (error instanceof TokenExpiredError) {
+//       return next(new CustomError("Please log in again", 400));
+//     } else {
+//       return next(error);
+//     }
+//   }
+// };
+
+export const updatedToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { accessToken: accessTokenPrefix, refreshToken } = req.cookies;
+
+  if (!accessTokenPrefix || !refreshToken) {
+    return next(new CustomError("Please provide both tokens", 400));
+  }
+
+  if (!accessTokenPrefix.startsWith(process.env.ACCESS_TOKEN_START_WITH)) {
+    return next(new CustomError("Invalid token prefix", 400));
+  }
+
+  const accessToken = accessTokenPrefix.split(
+    process.env.ACCESS_TOKEN_START_WITH
+  )[1];
+
   try {
-    const { email, password } = req.body;
-
-    const findUser = await userModel
-      .findOne({ email })
-      .select("name email password age");
-
-    if (!findUser) return next(new CustomError("Email doesn't exist", 404));
-
-    const chkPassword: boolean = compareSync(
-      password,
-      String(findUser.password)
+    // Verify the access token
+    const decodedToken = verifyToken(
+      accessToken,
+      String(process.env.SECRET_KEY)
     );
 
-    if (!chkPassword) return next(new CustomError("Invalid Password", 400));
+    if (decodedToken && decodedToken.userId) {
+      return res
+        .status(200)
+        .json({ message: "Token is already valid", success: true });
+    }
+  } catch (error: CustomError | Error | TokenExpiredError | any) {
+    if (error.message === "Token verification failed: Token has expired") {
+      try {
+        // Verify refresh token if access token expired
+        const { userId, role } = verifyToken(
+          refreshToken,
+          String(process.env.SECRET_KEY)
+        );
 
-    res
-      .status(200)
-      .json({ message: "Login successful", user: sanatizeUser(findUser) });
-  } catch (error) {
-    next(error);
+        // Generate a new access token
+        const newAccessToken = generateToken(
+          { userId, role, IpAddress: req.ip },
+          String(process.env.SECRET_KEY),
+          "1h"
+        );
+
+        res.cookie(
+          "accessToken",
+          `${process.env.ACCESS_TOKEN_START_WITH}${newAccessToken}`,
+          {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production", // Automatically true in production
+            sameSite: "strict",
+            maxAge: 3600000, // 1 hour
+            priority: "high",
+            path: "/",
+          }
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "Token refreshed",
+          accessToken: newAccessToken,
+        });
+      } catch (refreshError) {
+        // Handle errors with the refresh token
+        if (refreshError instanceof TokenExpiredError) {
+          return next(new CustomError("Please log in again", 400));
+        }
+        // Handle any other errors
+        return next(refreshError);
+      }
+    } else {
+      // Throw error if token is not expired but invalid
+      return next(error);
+    }
   }
 };

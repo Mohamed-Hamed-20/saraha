@@ -8,6 +8,7 @@ interface IEmail {
   subject?: string;
   text?: string;
   html: string;
+  message: string;
 }
 class EmailService implements IEmail {
   from: string;
@@ -15,6 +16,7 @@ class EmailService implements IEmail {
   subject: string;
   text: string;
   html: string;
+  message: string;
   private static transporterInstance: Transporter | null = null;
 
   constructor({
@@ -22,13 +24,14 @@ class EmailService implements IEmail {
     subject = "No Subject",
     text = "",
     html = "<p>No Content</p>",
+    message = "Please confirm your email",
   }: Partial<IEmail> & { to: string | string[] }) {
-
     this.from = String(process.env.EMAIL);
     this.to = to;
     this.subject = subject;
     this.text = text;
     this.html = html;
+    this.message = message;
   }
 
   public static createTransporter(): Transporter {
@@ -50,7 +53,7 @@ class EmailService implements IEmail {
     try {
       const transporter = EmailService.createTransporter();
       const info = await transporter.sendMail({
-        from: `"${this.from}" <${this.from}>`,
+        from: `${this.message} <${this.from}>`,
         to: this.to,
         subject: this.subject,
         text: this.text,

@@ -2,14 +2,14 @@ import { ErrorRequestHandler, NextFunction, Request, Response } from "express";
 
 export class CustomError extends Error {
   status: number;
-  constructor(message: string, status: number) {
-    console.log({ message, status });
 
+  constructor(message: string, status: number) {
     super(message);
     this.status = status;
     this.name = "CustomError";
   }
 }
+
 //ERROR HANDLING
 export const errorHandler: ErrorRequestHandler = (
   err: Error | CustomError,
@@ -28,24 +28,15 @@ type ControllerFunction = (
   req: Request,
   res: Response,
   next: NextFunction
-) => Promise<void>;
-
+) => Promise<void> | Promise<any>;
 
 // ASYNC handler
 export const asyncHandler = (controller: ControllerFunction) => {
   return (req: Request, res: Response, next: NextFunction) => {
     controller(req, res, next).catch((error: Error | CustomError) => {
-      console.log({ error });
-
-      const customError =
-        error instanceof CustomError
-          ? error
-          : new CustomError(error.message, 500);
-
-      res.status(customError.status || 500).json({
-        message: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-      });
+      return error instanceof CustomError
+        ? next(error)
+        : next(new CustomError(error.message, 500));
     });
   };
 };

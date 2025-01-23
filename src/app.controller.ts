@@ -1,5 +1,5 @@
 import { Router } from "express";
-import messageRouter from "./modules/auth/auth.controller";
+import messageRouter from "./modules/message/message.controller";
 import authRouter from "./modules/auth/auth.controller";
 import userRouter from "./modules/user/user.controller";
 const router: Router = Router();
