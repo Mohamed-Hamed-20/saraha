@@ -7,10 +7,15 @@ import { errorHandler, multerErrorHandler } from "./utils/errorHandling";
 import redis from "./utils/redis";
 import { isAuth, Roles } from "./middleware/auth";
 import path from "path";
+import { welcome } from "./utils/welocme";
 
 const app: Application = express();
+
 const port = 5000;
 dotenv.config();
+const jsonParcer = express.json();
+console.log(jsonParcer.toString());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -21,7 +26,7 @@ redis;
 app.use("/api/v1", routes);
 
 app.get("/", (req: Request, res: Response): void => {
-  res.send("Hello World!");
+  res.send(welcome());
 });
 
 //handle not found route
